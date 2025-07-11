@@ -22,7 +22,7 @@
       (append arr-n-shuffled arr-n-shuffled))))
 
 (defun grad (hash x y)
-  (let ((h (logand hash)))
+  (let ((h (logand hash 3)))
     (match h
       (0 (+ x 0))
       (1 (+ (* x (- 0 1) 0)))
@@ -61,12 +61,30 @@
   (z 0.0 :type float))
 
 (defparameter *grid*
-  (make-array `(,+grid-height+ ,+grid-width+) :initial-element (make-point)))
+  (let ((arr (make-array `(,+grid-height+ ,+grid-width+))))
+
+    (loop for col from 0 below +grid-width+ do
+      (loop for row from 0 below +grid-height+ do
+        (setf (aref arr row col) (make-point))))
+    
+    (loop for col from 0 below +grid-width+ do
+      (loop for row from 0 below +grid-height+ do
+        (progn
+          (setf (point-x (aref arr row col)) (float row))
+          (setf (point-y (aref arr row col)) (float col)))))
+    
+    arr))
+
+(defun calculate-perlin ()
+  (loop for col from 0 below +grid-width+ do
+    (loop for row from 0 below +grid-height+ do
+      (let ((x (point-x (aref *grid* row col)))
+            (y (point-y (aref *grid* row col))))
+        (setf (point-z (aref *grid* row col)) (perlin x y))))))
 
 (defun prova-fun ()
   (print "Hello, World"))
 
 (defun main ()
-  ;(nth 1 +permutation+))
-  (perlin 2.3 6.7))
-
+  (calculate-perlin)
+  (aref *grid* 231 76))
