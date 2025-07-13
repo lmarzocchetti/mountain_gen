@@ -149,7 +149,7 @@ void fill_pixels(Color *pixels, Point *points, int width, int height)
 
 int main(void)
 {
-    InitWindow(494, 520, "Perlin Noise");
+    InitWindow(520, 520, "Perlin Noise");
     SetTargetFPS(60);
 
     Point points[GRID_WIDTH * GRID_HEIGHT] = {0};
