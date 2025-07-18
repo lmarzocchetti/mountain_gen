@@ -7,7 +7,7 @@
 #define GRID_WIDTH 520
 
 #define SCALE 0.03
-#define OCTAVES 4
+#define OCTAVES 8
 #define INITIAL_AMPLITUDE 1.0
 #define INITIAL_FREQUENCY 1.0
 #define LACUNARITY 2.0
@@ -131,7 +131,49 @@ void calculate_perlin_noise(Point *points, int width, int height)
         {
             points[row * GRID_WIDTH + col].x = (float)col;
             points[row * GRID_WIDTH + col].y = (float)row;
-            points[row * GRID_WIDTH + col].z = to_zero_one_range(perlin((float)col * SCALE, (float)row * SCALE));
+            points[row * GRID_WIDTH + col].z = perlin((float)col * SCALE, (float)row * SCALE);
+        }
+    }
+}
+
+float fbm(float x, float y, int octaves, float base_freq, float base_amp, float lacunarity, float gain)
+{
+    float freq = base_freq;
+    float amp = base_amp;
+    float sum = 0.0f;
+    float amp_sum = 0.0f;
+
+    for (int i = 0; i < octaves; ++i)
+    {
+        float n = perlin(x * freq, y * freq);
+        sum += n * amp;
+        amp_sum += amp;
+
+        freq *= lacunarity;
+        amp *= gain;
+    }
+
+    if (amp_sum > 0.0f)
+    {
+        sum /= amp_sum;
+    }
+
+    return sum;
+}
+
+void calculate_fbm_heightmap(Point *points, int width, int height, float base_freq, int octaves)
+{
+    for (int row = 0; row < height; ++row)
+    {
+        for (int col = 0; col < width; ++col)
+        {
+            float fx = (float)col;
+            float fy = (float)row;
+            points[row * GRID_WIDTH + col].x = fx;
+            points[row * GRID_WIDTH + col].y = fy;
+            float val = fbm(fx, fy, octaves, base_freq, 1.0f, 2.0f, 0.48f);
+            val = to_zero_one_range(val);
+            points[row * GRID_WIDTH + col].z = val;
         }
     }
 }
@@ -153,7 +195,8 @@ int main(void)
     SetTargetFPS(60);
 
     Point points[GRID_WIDTH * GRID_HEIGHT] = {0};
-    calculate_perlin_noise(points, GRID_WIDTH, GRID_WIDTH);
+    // calculate_perlin_noise(points, GRID_WIDTH, GRID_WIDTH);
+    calculate_fbm_heightmap(points, GRID_WIDTH, GRID_HEIGHT, 0.0012f, OCTAVES);
 
     Color pixels[GRID_WIDTH * GRID_HEIGHT] = {0};
     fill_pixels(pixels, points, GRID_WIDTH, GRID_HEIGHT);
