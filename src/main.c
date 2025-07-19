@@ -7,15 +7,18 @@
 #define RLIGHTS_IMPLEMENTATION
 #include "rlights.h"
 
-#define GRID_HEIGHT 520
-#define GRID_WIDTH 520
+#define SCREEN_HEIGHT 720
+#define SCREEN_WIDTH 1280
 
-#define SCALE 0.05
-#define OCTAVES 12
-#define BASE_AMP 1.0
-#define BASE_FREQ 0.005
-#define LACUNARITY 2.0
-#define GAIN 0.50
+#define GRID_HEIGHT 2000
+#define GRID_WIDTH 2000
+
+#define SCALE 0.009
+#define OCTAVES 8
+#define BASE_AMP 0.001
+#define BASE_FREQ 0.035
+#define LACUNARITY 1.9
+#define GAIN 0.20
 
 unsigned char permutation[] = {
     151, 160, 137, 91,  90,  15,  131, 13,  201, 95,  96,  53,  194, 233, 7,   225, 140, 36,  103, 30,  69,  142, 8,
@@ -195,12 +198,13 @@ void fill_pixels(Color *pixels, Point *points, int width, int height)
 
 int main(void)
 {
-    InitWindow(GRID_WIDTH, GRID_HEIGHT, "Perlin Noise");
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Perlin Noise");
     SetTargetFPS(60);
 
     Point points[GRID_WIDTH * GRID_HEIGHT] = {0};
-    // calculate_perlin_noise(points, GRID_WIDTH, GRID_WIDTH);
-    calculate_fbm_heightmap(points, GRID_WIDTH, GRID_HEIGHT, BASE_FREQ, OCTAVES);
+    calculate_perlin_noise(points, GRID_WIDTH, GRID_WIDTH);
+    // calculate_fbm_heightmap(points, GRID_WIDTH, GRID_HEIGHT, BASE_FREQ, OCTAVES);
 
     Camera camera = {0};
     camera.position = (Vector3){18.0f, 25.0f, 18.0f};
@@ -213,15 +217,15 @@ int main(void)
     Color pixels[GRID_WIDTH * GRID_HEIGHT] = {0};
     fill_pixels(pixels, points, GRID_WIDTH, GRID_HEIGHT);
 
-    Image fbm_heightmap_image = {
-        .data = pixels,
-        .width = GRID_WIDTH,
-        .height = GRID_HEIGHT,
-        .mipmaps = 1,
-        .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
-    };
+    // Image fbm_heightmap_image = {
+    //     .data = pixels,
+    //     .width = GRID_WIDTH,
+    //     .height = GRID_HEIGHT,
+    //     .mipmaps = 1,
+    //     .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
+    //  };
 
-    // Image fbm_heightmap_image = GenImagePerlinNoise(520, 520, 0, 0, 1.0);
+    Image fbm_heightmap_image = GenImagePerlinNoise(520, 520, 0, 0, 1.0);
 
     Texture texture = LoadTextureFromImage(fbm_heightmap_image);
 
@@ -234,11 +238,12 @@ int main(void)
     Shader shader = LoadShader("shaders/lighting.vert", "shaders/lighting.frag");
     model.materials[0].shader = shader;
 
-    Light light = CreateLight(LIGHT_POINT, (Vector3){2, 2, 2}, Vector3Zero(), RAYWHITE, shader);
+    Light light = CreateLight(LIGHT_DIRECTIONAL, (Vector3){2, 2, 2}, Vector3Zero(),
+                              (Color){.r = 255, .g = 0, .b = 0, .a = 255}, shader);
 
     while (!WindowShouldClose())
     {
-        UpdateCamera(&camera, CAMERA_ORBITAL);
+        UpdateCamera(&camera, CAMERA_THIRD_PERSON);
 
         BeginDrawing();
 
@@ -246,7 +251,7 @@ int main(void)
 
         BeginMode3D(camera);
 
-        DrawModel(model, map_position, 1.0f, GRAY);
+        DrawModel(model, map_position, 1.0f, RED);
         DrawGrid(20, 1.0f);
 
         EndMode3D();
