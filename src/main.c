@@ -1,17 +1,21 @@
 #include <m-list.h>
 #include <math.h>
 #include <raylib.h>
+#include <raymath.h>
 #include <stdbool.h>
+
+#define RLIGHTS_IMPLEMENTATION
+#include "rlights.h"
 
 #define GRID_HEIGHT 520
 #define GRID_WIDTH 520
 
-#define SCALE 0.03
-#define OCTAVES 8
-#define INITIAL_AMPLITUDE 1.0
-#define INITIAL_FREQUENCY 1.0
+#define SCALE 0.05
+#define OCTAVES 12
+#define BASE_AMP 1.0
+#define BASE_FREQ 0.005
 #define LACUNARITY 2.0
-#define GAIN 0.5
+#define GAIN 0.50
 
 unsigned char permutation[] = {
     151, 160, 137, 91,  90,  15,  131, 13,  201, 95,  96,  53,  194, 233, 7,   225, 140, 36,  103, 30,  69,  142, 8,
@@ -171,7 +175,7 @@ void calculate_fbm_heightmap(Point *points, int width, int height, float base_fr
             float fy = (float)row;
             points[row * GRID_WIDTH + col].x = fx;
             points[row * GRID_WIDTH + col].y = fy;
-            float val = fbm(fx, fy, octaves, base_freq, 1.0f, 2.0f, 0.48f);
+            float val = fbm(fx, fy, octaves, base_freq, BASE_AMP, LACUNARITY, GAIN);
             val = to_zero_one_range(val);
             points[row * GRID_WIDTH + col].z = val;
         }
@@ -191,17 +195,25 @@ void fill_pixels(Color *pixels, Point *points, int width, int height)
 
 int main(void)
 {
-    InitWindow(520, 520, "Perlin Noise");
+    InitWindow(GRID_WIDTH, GRID_HEIGHT, "Perlin Noise");
     SetTargetFPS(60);
 
     Point points[GRID_WIDTH * GRID_HEIGHT] = {0};
     // calculate_perlin_noise(points, GRID_WIDTH, GRID_WIDTH);
-    calculate_fbm_heightmap(points, GRID_WIDTH, GRID_HEIGHT, 0.0012f, OCTAVES);
+    calculate_fbm_heightmap(points, GRID_WIDTH, GRID_HEIGHT, BASE_FREQ, OCTAVES);
 
+    Camera camera = {0};
+    camera.position = (Vector3){18.0f, 25.0f, 18.0f};
+    camera.target = (Vector3){0.0f, 0.0f, 0.0f};
+    camera.up = (Vector3){0.0f, 1.0f, 0.0f};
+    camera.fovy = 45.0f;
+    camera.projection = CAMERA_PERSPECTIVE;
+
+    // Heightmap image
     Color pixels[GRID_WIDTH * GRID_HEIGHT] = {0};
     fill_pixels(pixels, points, GRID_WIDTH, GRID_HEIGHT);
 
-    Image perlin_noise_image = {
+    Image fbm_heightmap_image = {
         .data = pixels,
         .width = GRID_WIDTH,
         .height = GRID_HEIGHT,
@@ -209,17 +221,45 @@ int main(void)
         .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
     };
 
-    Texture texture = LoadTextureFromImage(perlin_noise_image);
+    // Image fbm_heightmap_image = GenImagePerlinNoise(520, 520, 0, 0, 1.0);
+
+    Texture texture = LoadTextureFromImage(fbm_heightmap_image);
+
+    Mesh mesh = GenMeshHeightmap(fbm_heightmap_image, (Vector3){16, 8, 16});
+    Model model = LoadModelFromMesh(mesh);
+
+    model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+    Vector3 map_position = {-8.0f, 0.0f, -8.0f};
+
+    Shader shader = LoadShader("shaders/lighting.vert", "shaders/lighting.frag");
+    model.materials[0].shader = shader;
+
+    Light light = CreateLight(LIGHT_POINT, (Vector3){2, 2, 2}, Vector3Zero(), RAYWHITE, shader);
 
     while (!WindowShouldClose())
     {
+        UpdateCamera(&camera, CAMERA_ORBITAL);
+
         BeginDrawing();
 
-        DrawTexture(texture, 0, 0, WHITE);
+        ClearBackground(RAYWHITE);
 
+        BeginMode3D(camera);
+
+        DrawModel(model, map_position, 1.0f, GRAY);
+        DrawGrid(20, 1.0f);
+
+        EndMode3D();
+
+        DrawFPS(10, 10);
+
+        // DrawTexture(texture, 0, 0, WHITE);
         EndDrawing();
     }
 
+    UnloadShader(shader);
+    UnloadTexture(texture);
+    UnloadModel(model);
     CloseWindow();
 
     return 0;
